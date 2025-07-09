@@ -57,3 +57,67 @@ E --> F[Build Neural Network]
 F --> G[Train Model]
 G --> H[Predict ratings for unseen movies]
 H --> I[Sort and Recommend Top-N Movies]
+
+
+🧪 Model Training
+Epochs: 70
+
+Batch Size: 128
+
+Dropout: 5% to prevent overfitting
+
+Accuracy & Loss monitored on validation set
+
+history = model.fit(
+    x = X_train_array, y = y_train,
+    validation_data=(X_test_array, y_test),
+    epochs=70, batch_size=128, shuffle=True
+)
+
+
+🔍 Prediction Function
+
+def recommender_system(user_id, model, n_movies):
+    encoded_user = user_enc.transform([user_id])
+    seen = refined_dataset[refined_dataset['user id'] == user_id]['movie']
+    unseen = [i for i in range(n_movies_total) if i not in seen]
+    model_input = [np.asarray([encoded_user[0]] * len(unseen)), np.asarray(unseen)]
+    predictions = model.predict(model_input)
+    predicted_ratings = np.max(predictions, axis=1)
+    sorted_indices = np.argsort(predicted_ratings)[::-1]
+    return item_enc.inverse_transform(sorted_indices[:n_movies])
+📈 Sample Output
+markdown
+
+Top 10 Movie recommendations for user 777:
+1. Contact (1997)
+2. Return of the Jedi (1983)
+3. L.A. Confidential (1997)
+...
+🧠 Future Improvements
+Use Transformer models (e.g., BERT, Attention layers)
+
+Incorporate timestamp-based temporal analysis
+
+Evaluate using RMSE or MSE for continuous ratings
+
+Add user demographics or genres as extra features
+
+🙋‍♂️ Author
+Mohammad Nurnabi
+CSE, North East University Bangladesh
+ID: 0562210005101011
+
+📜 License
+This project is for academic and research purposes. Not for commercial use.
+
+yaml
+Copy
+Edit
+
+---
+
+🔹 **Tips:**
+- Save the above content in a file named `README.md`
+- If using GitHub, simply place it in the root folder of your repository
+- Add screenshots, model architecture diagram, or colab notebook links as needed
