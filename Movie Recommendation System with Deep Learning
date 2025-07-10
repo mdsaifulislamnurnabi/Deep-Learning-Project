@@ -1,1 +1,213 @@
 
+## The libraries
+"""
+
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+
+# from keras.models import Model
+# from keras.layers import Input, Reshape, Dot
+# from keras.layers.embeddings import Embedding
+# from keras.optimizers import Adam
+# from keras.regularizers import l2
+# from keras.layers import Concatenate, Dense, Dropout
+# from keras.layers import Add, Activation, Lambda
+
+import tensorflow as tf
+import keras
+from pprint import pprint
+
+DATASET_LINK='http://files.grouplens.org/datasets/movielens/ml-100k.zip'
+
+!wget -nc http://files.grouplens.org/datasets/movielens/ml-100k.zip
+!unzip -n ml-100k.zip
+
+"""#Loading MovieLens dataset
+
+Loading u.info -- The number of users, items, and ratings in the u data set.
+"""
+
+overall_stats = pd.read_csv('ml-100k/u.info', header=None)
+print("Details of users, items and ratings involved in the loaded movielens dataset: ",list(overall_stats[0]))
+
+"""Loading u.data     -- The full u data set, 100000 ratings by 943 users on 1682 items.
+
+---
+
+
+
+              Each user has rated at least 20 movies.  Users and items are
+              numbered consecutively from 1.  The data is randomly ordered. This is a tab separated list of
+	         user id | item id | rating | timestamp.
+              The time stamps are unix seconds since 1/1/1970 UTC
+"""
+
+## same item id is same as movie id, item id column is renamed as movie id
+column_names1 = ['user id','movie id','rating','timestamp']
+ratings_dataset = pd.read_csv('ml-100k/u.data', sep='\t',header=None,names=column_names1)
+ratings_dataset.head()
+
+"""Loading u.item     -- Information about the items (movies); this is a tab separated
+
+              list of
+              movie id | movie title | release date | video release date |
+              IMDb URL | unknown | Action | Adventure | Animation |
+              Children's | Comedy | Crime | Documentary | Drama | Fantasy |
+              Film-Noir | Horror | Musical | Mystery | Romance | Sci-Fi |
+              Thriller | War | Western |
+              The last 19 fields are the genres, a 1 indicates the movie
+              is of that genre, a 0 indicates it is not; movies can be in
+              several genres at once.
+              The movie ids are the ones used in the u.data data set.
+
+"""
+
+d = 'movie id | movie title | release date | video release date | IMDb URL | unknown | Action | Adventure | Animation | Children | Comedy | Crime | Documentary | Drama | Fantasy | Film-Noir | Horror | Musical | Mystery | Romance | Sci-Fi | Thriller | War | Western'
+column_names2 = d.split(' | ')
+print(column_names2)
+
+items_dataset = pd.read_csv('ml-100k/u.item', sep='|',header=None,names=column_names2,encoding='latin-1')
+items_dataset.head()
+
+movie_dataset = items_dataset[['movie id','movie title']]
+movie_dataset.head()
+
+"""Looking at length of original items_dataset and length of unique combination of rows in items_dataset after removing movie id column"""
+
+## looking at length of original items_dataset and length of unique combination of rows in items_dataset after removing movie id column
+len(items_dataset.groupby(by=column_names2[1:])),len(items_dataset)
+
+"""We can see there are 18 extra movie id's for already mapped movie title and the same duplicate movie id is assigned to the user in the user-item dataset.
+
+#Merging required datasets
+"""
+
+merged_dataset = pd.merge(ratings_dataset, movie_dataset, how='inner', on='movie id')
+merged_dataset.head()
+
+"""A dataset is created from the existing merged dataset by grouping the unique user id and movie title combination and the ratings by a user to the same movie in different instances (timestamps) are averaged and stored in the new dataset.
+
+Example of a multiple rating scenario by an user to a specific movie:
+"""
+
+merged_dataset[(merged_dataset['movie title'] == 'Chasing Amy (1997)') & (merged_dataset['user id'] == 894)]
+
+"""## Creating a final refined dataset with unique user id, movie name combination and their ratings:
+
+"""
+
+refined_dataset = merged_dataset.groupby(by=['user id','movie title'], as_index=False).agg({"rating":"mean"})
+
+refined_dataset.head()
+
+"""## Encoding users and movie titles to make sure that the sequence has no missing values when dealing with Deep Neural Networks."""
+
+user_enc = LabelEncoder()
+refined_dataset['user'] = user_enc.fit_transform(refined_dataset['user id'].values)
+n_users = refined_dataset['user'].nunique()
+
+item_enc = LabelEncoder()
+refined_dataset['movie'] = item_enc.fit_transform(refined_dataset['movie title'].values)
+n_movies = refined_dataset['movie'].nunique()
+
+refined_dataset['rating'] = refined_dataset['rating'].values.astype(np.float32)
+min_rating = min(refined_dataset['rating'])
+max_rating = max(refined_dataset['rating'])
+n_users, n_movies, min_rating, max_rating
+
+refined_dataset.head()
+
+"""## Splitting the data into training and testing"""
+
+X = refined_dataset[['user', 'movie']].values
+y = refined_dataset['rating'].values
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=50)
+X_train.shape, X_test.shape, y_train.shape, y_test.shape
+
+"""## Defining number of factors which are to be considered by the Embedding layer"""
+
+n_factors = 150
+
+"""Columns in the input array are split into two separate arrays. As Keras considers them as two distinct inputs, each input needs to be fed in as its own array."""
+
+X_train_array = [X_train[:, 0], X_train[:, 1]]
+X_test_array = [X_test[:, 0], X_test[:, 1]]
+
+X_train, X_train_array, X_train_array[0].shape
+
+"""## Normalizing the labels"""
+
+y_train = (y_train - min_rating)/(max_rating - min_rating)
+y_test = (y_test - min_rating)/(max_rating - min_rating)
+
+"""## Building a Softmax Deep Neural Network"""
+
+import tensorflow as tf
+
+user = tf.keras.layers.Input(shape=(1,))
+u = tf.keras.layers.Embedding(n_users, n_factors, embeddings_initializer='he_normal',
+                              embeddings_regularizer=tf.keras.regularizers.l2(1e-6))(user)
+u = tf.keras.layers.Reshape((n_factors,))(u)
+
+movie = tf.keras.layers.Input(shape=(1,))
+m = tf.keras.layers.Embedding(n_movies, n_factors, embeddings_initializer='he_normal',
+                              embeddings_regularizer=tf.keras.regularizers.l2(1e-6))(movie)
+m = tf.keras.layers.Reshape((n_factors,))(m)
+
+x = tf.keras.layers.Concatenate()([u, m])
+x = tf.keras.layers.Dropout(0.05)(x)
+x = tf.keras.layers.Dense(32, kernel_initializer='he_normal', activation='relu')(x)
+x = tf.keras.layers.Dropout(0.05)(x)
+x = tf.keras.layers.Dense(16, kernel_initializer='he_normal', activation='relu')(x)
+x = tf.keras.layers.Dropout(0.05)(x)
+x = tf.keras.layers.Dense(9, activation='softmax')(x)
+
+model = tf.keras.models.Model(inputs=[user, movie], outputs=x)
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+              metrics=['accuracy'])
+
+model.summary()
+
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.75, patience=3, min_lr=0.000001, verbose=1)
+
+history = model.fit(x = X_train_array, y = y_train, batch_size=128, epochs=70, verbose=1, validation_data=(X_test_array, y_test)
+,shuffle=True,callbacks=[reduce_lr])
+
+plt.plot(history.history["loss"][5:])
+plt.plot(history.history["val_loss"][5:])
+plt.title("model loss")
+plt.ylabel("loss")
+plt.xlabel("epoch")
+plt.legend(["train", "test"], loc="upper left")
+plt.show()
+
+"""## Getting movies for given User"""
+
+refined_dataset.head()
+
+# @title user id
+
+from matplotlib import pyplot as plt
+refined_dataset['user id'].plot(kind='hist', bins=20, title='user id')
+plt.gca().spines[['top', 'right',]].set_visible(False)
+
+"""**How this DNN model works is, it takes two inputs, one of the input has user id's and the other has corresponding movie id's. Here DNN model tries to predict the ratings of the user - movie combination. So, we can input a specific user id (broadcasting it with the size of other input) and unseen movie id of the user and expect the model to give the ratings of the movies which would have been the ratings given by the user. Here, the ratings are already normalized and as we need the movies which interest the user more, ratings are not brought back to 0-5 scale.**"""
+
+X_train_array
+
+"""Above is the model input shape"""
+
+user_id = [777]
+encoded_user_id = user_enc.transform(user_id)
+
+seen_movies = list(refined_dataset[refined_dataset['user id'] == user_id[0]]['movie'])
+print(seen_movies)
+
+"""Id's of movies which are already seen by the user are extracted."""
+
+len(refined_dataset['movie'].unique()), min(refined_dataset['movie']), max(refined_dataset['movie'])
