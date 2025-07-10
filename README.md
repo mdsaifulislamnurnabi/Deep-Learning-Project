@@ -63,7 +63,6 @@ Once opened in Colab, you can run all the cells sequentially to execute the proj
 
 While most necessary libraries are pre-installed in Google Colab, it's good practice to include installation commands, especially if you plan to run the project in a local Python environment.
 
-```bash
 pip install numpy pandas matplotlib scikit-learn tensorflow
 
 
