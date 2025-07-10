@@ -59,7 +59,7 @@ You can run this Movie Recommendation System in just a few simple steps using Go
 ```bash
 pip install numpy pandas matplotlib scikit-learn tensorflow
 
-
+---
 ## 🔍 Workflow Overview
 
 ```mermaid
