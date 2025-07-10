@@ -70,16 +70,26 @@ pip install numpy pandas matplotlib scikit-learn tensorflow
 
 ---
 
-### WorkFlow Overview
+## 🔍 Workflow Overview
 
+
+
+```mermaid
 
 graph TD
-    A[Load Dataset] --> B[Merge Ratings & Titles]
-    B --> C[Handle/Average multiple ratings (if any)]
-    C --> D[Encode users & movies (Map IDs to integers)]
-    D --> E[Train–Test Split (Divide data for training & evaluation)]
-    E --> F[Build Neural Network (Define model architecture)]
-    F --> G[Train Model (Fit model to training data)]
-    G --> H[Predict ratings for unseen movies]
-    H --> I[Sort and Recommend Top-N Movies]
 
+  A[Load Dataset] --> B[Merge Ratings & Titles]
+
+  B --> C[Average multiple ratings]
+
+  C --> D[Encode users & movies]
+
+  D --> E[Train–Test Split]
+
+  E --> F[Build Neural Network]
+
+  F --> G[Train Model]
+
+  G --> H[Predict ratings for unseen movies]
+
+  H --> I[Sort and Recommend Top-N Movies]
